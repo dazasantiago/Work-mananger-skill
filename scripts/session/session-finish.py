@@ -10,6 +10,8 @@ JSON shape (widget close payload + claude summary):
         "session_id":  "notion-page-id",
         "planned_min": 90,
         "actual_min":  85,
+        "start":       "2026-06-11T14:00:00.000Z",
+        "end":         "2026-06-11T15:00:00.000Z",
         "summary":     "Claude-generated summary",
         "tasks": [
             {
@@ -34,6 +36,7 @@ Rules:
 import json
 import sys
 import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -98,10 +101,22 @@ def main():
         if i < len(tasks) - 1:
             time.sleep(0.35)
 
+    # Date range for the session entry, so it renders as a timed event in
+    # the Notion calendar. Falls back to "now - actual_min" when start/end
+    # aren't provided (manual finish flow).
+    start_iso = data.get("start")
+    end_iso   = data.get("end")
+    if not start_iso or not end_iso:
+        end_dt    = datetime.now().astimezone()
+        start_dt  = end_dt - timedelta(minutes=actual_min)
+        start_iso = start_dt.isoformat()
+        end_iso   = end_dt.isoformat()
+
     # Update session entry
     session_props = {
         "Status":      {"select": {"name": "Completed"}},
         "Actual (min)": {"number": actual_min},
+        "Date":        {"date": {"start": start_iso, "end": end_iso}},
     }
     if summary:
         session_props["Summary"] = {"rich_text": [{"text": {"content": summary}}]}

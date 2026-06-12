@@ -94,6 +94,12 @@ El JSON debe ser el payload original con el campo `summary` añadido:
 }
 ```
 
+`session-finish.py` actualiza también la propiedad `Date` de la sesión para
+que aparezca como evento con horario en el calendario de Notion. Si el
+payload incluye `start`/`end` (ISO 8601, como manda el widget) se usan esos
+valores; si no vienen (caso típico del flujo manual), el script calcula
+`end = ahora` y `start = end - actual_min`.
+
 ---
 
 ## 5. Presentar el cierre

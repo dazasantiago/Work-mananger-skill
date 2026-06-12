@@ -12,6 +12,42 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\<script>.py"
 
 El token de Notion está en `.env` dentro de la skill. Los scripts lo cargan automáticamente.
 
+### Encoding en Windows (emoji, tildes)
+
+La consola de este entorno es `cp1252`, no UTF-8. Esto afecta dos casos:
+
+**1. Scripts que solo imprimen** (`fetch-overview.py`,
+`session-fetch-brief.py`, etc.): si el output tiene emoji o tildes y el script
+usa `ensure_ascii=False`, `print()` lanza `UnicodeEncodeError`. Anteponer
+`PYTHONIOENCODING=utf-8`:
+
+```bash
+set PYTHONIOENCODING=utf-8 && python "...\fetch-overview.py"
+```
+
+La consola puede mostrar `�` donde va una tilde/emoji — es solo cosmético, los
+datos en Notion quedan bien.
+
+**2. Scripts que reciben JSON con emoji como argumento** (`task-write.py`,
+`project-write.py`, `session-create.py`, etc.): pasar el emoji directo como
+string en bash/PowerShell rompe el JSON (mal escapado, `\x..` no es un escape
+válido). En su lugar:
+
+1. Escribir el JSON a un archivo temporal UTF-8 (Write tool, ej. `_tmp_task.json`
+   junto al script).
+2. Ejecutar vía wrapper que fuerza lectura UTF-8 y agrega `scripts/` al path:
+
+   ```bash
+   python -c "
+   import sys, runpy
+   sys.path.insert(0, r'C:\Users\dazas\.claude\skills\actions\scripts')
+   data = open('_tmp_task.json', encoding='utf-8').read().strip()
+   sys.argv = ['task-write.py', data]
+   runpy.run_path(r'C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py', run_name='__main__')
+   "
+   ```
+3. Borrar el archivo temporal al terminar.
+
 ## Regla global: Emoji en el título al crear
 
 Al crear una **task**, **project** o **session** en Notion, el título

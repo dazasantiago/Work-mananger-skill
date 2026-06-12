@@ -42,6 +42,8 @@ export interface FinishPayload {
   session_title: string;
   planned_min: number;
   actual_min: number;
+  start: string;
+  end: string;
   summary: string;
   tasks: FinishTask[];
 }

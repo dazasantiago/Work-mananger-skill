@@ -53,6 +53,8 @@ export function buildFinishPayload(
     session_title: session.session_title,
     planned_min: session.planned_min,
     actual_min,
+    start: new Date(sessionStart).toISOString(),
+    end: new Date(now).toISOString(),
     summary,
     tasks: tasks.map(t => {
       const ms = effectiveMs(tasks, t, now);
