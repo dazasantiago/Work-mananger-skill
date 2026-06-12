@@ -1,0 +1,12 @@
+{
+  "session_id": "dev-session-id-000",
+  "session_title": "Session — 2026-06-09 — Mixed (DEV)",
+  "planned_min": 90,
+  "projects": ["Ritto", "Universidad", "Personal", "OpenClaw"],
+  "tasks": [
+    { "id": "abc123", "name": "Revisar arquitectura del widget", "project": "Ritto", "left_min": 30, "initial_actual_min": 0, "prev_status": "En progreso" },
+    { "id": "def456", "name": "Escribir tests de integración", "project": "Ritto", "left_min": 25, "initial_actual_min": 10, "prev_status": "En progreso" },
+    { "id": "ghi789", "name": "Preparar presentación", "project": "Universidad", "left_min": 20, "initial_actual_min": 0, "prev_status": "Pendiente" },
+    { "id": "jkl012", "name": "Revisar PRs pendientes", "project": "Personal", "prev_status": "Pendiente" }
+  ]
+}
