@@ -2,13 +2,18 @@
 
 ## 1. Fetch de datos
 
-Ejecutar antes de cualquier otra cosa:
+Ejecutar antes de cualquier otra cosa, **en paralelo**:
 
 ```bash
 python "C:\Users\dazas\.claude\skills\actions\scripts\session\session-fetch-brief.py"
 ```
 
-Output: JSON con `tasks`, `projects`, y `reference_session`.
+y, con el Read tool, `C:\Users\dazas\.claude\session-current.json` (de la
+sesión anterior — casi siempre existe). El tool Write exige haberlo leído
+antes de sobreescribirlo en el paso 8; hacerlo ahora evita ese paso de último
+momento, cuando lo que importa es lanzar el widget lo más rápido posible.
+
+Output del script: JSON con `tasks`, `projects`, y `reference_session`.
 
 ## 2. Pedir duración (y focus opcional)
 
@@ -83,29 +88,31 @@ El JSON debe tener esta forma:
 
 ```json
 {
-    "title":       "⏱️ Session — YYYY-MM-DD — [proyecto o Mixed]",
+    "title":       "Session — YYYY-MM-DD — [proyecto o Mixed]",
     "date":        "YYYY-MM-DD",
     "planned_min": 90,
     "task_ids":    ["notion-page-id-1", "notion-page-id-2"]
 }
 ```
 
-`title` siempre empieza con ⏱️ (ver "Regla global: Emoji en el título al
-crear" en `SKILL.md`).
+`title` sin emoji — el script setea automáticamente el ícono de página ⏱️
+(ver "Regla global: Emoji como ícono de página al crear" en `SKILL.md`).
 
 El script crea la entrada en Sessions y actualiza todas las tasks aprobadas a `En progreso` en un solo paso. Devuelve:
 ```json
 {"session_id": "...", "prev_statuses": {"<task-id>": "<status-antes>", ...}}
 ```
 
-Guardar `session_id` en contexto. Con ese output, escribir `C:\Users\dazas\.claude\session-current.json`:
+Guardar `session_id` en contexto. Con ese output, escribir
+`C:\Users\dazas\.claude\session-current.json` (ya leído en el paso 1, así que
+Write puede sobreescribirlo directamente):
 
 ```json
 {
     "session_id": "<id>",
     "session_title": "<title>",
     "planned_min": 90,
-    "projects": ["Proyecto A"],
+    "projects": ["Proyecto A", "Proyecto B", "..."],
     "tasks": [
         {
             "id": "<task-id>",
@@ -118,6 +125,12 @@ Guardar `session_id` en contexto. Con ese output, escribir `C:\Users\dazas\.clau
     ]
 }
 ```
+
+`projects` debe ser la lista de **todos** los proyectos de Notion — los
+nombres `Project` de cada entrada en `projects` del output del paso 1 — no
+solo los de las tasks aprobadas para esta sesión. El widget usa esta lista
+para el dropdown de proyecto en "+ Add task", y debe poder asignar cualquier
+proyecto existente, no solo los que ya están en el plan.
 
 El campo `prev_status` por task viene de `prev_statuses[task_id]` en el output del script. Es necesario para poder cancelar la sesión.
 

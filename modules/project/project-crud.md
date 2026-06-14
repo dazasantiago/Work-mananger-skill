@@ -25,8 +25,9 @@ El usuario dice "agrega un proyecto...", "anota la idea de...", "quiero
 empezar a trabajar en...".
 
 Datos:
-- `project` (título) — requerido. Anteponer un emoji elegido según el tema
-  del proyecto (ver "Regla global: Emoji en el título al crear" en `SKILL.md`)
+- `project` (título, sin emoji) — requerido
+- `emoji` — requerido. Elegirlo según el tema del proyecto (ver "Regla global:
+  Emoji como ícono de página al crear" en `SKILL.md`)
 - `status` — si dice "es una idea" o no especifica, omitir (default "Idea").
   "ya lo voy a empezar" → `status: "Active"`. "lo dejo para después" → `status: "Backlog"`
 - `type` — preguntar solo si no es obvio del contexto ("Software Development"
@@ -42,6 +43,7 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\project\project-write.py" 
 ```json
 {
     "project": "Nombre del proyecto",
+    "emoji": "🚀",
     "status": "Idea",
     "type": "Software Development",
     "context": "Descripción capturada"

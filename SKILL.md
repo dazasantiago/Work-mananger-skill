@@ -46,20 +46,28 @@ válido). En su lugar:
    runpy.run_path(r'C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py', run_name='__main__')
    "
    ```
-3. Borrar el archivo temporal al terminar.
+3. Borrar el archivo temporal al terminar con `rm` (Bash tool corre en shell
+   POSIX — `del` es de cmd y falla con "command not found").
 
-## Regla global: Emoji en el título al crear
+## Regla global: Emoji como ícono de página al crear
 
-Al crear una **task**, **project** o **session** en Notion, el título
-(campo `task` / `project` / `title` que se envía al script) siempre empieza
-con un emoji:
+Al crear una **task**, **project** o **session** en Notion, el emoji va como
+**ícono de la página** (campo `icon` de Notion vía el parámetro `emoji` que
+reciben los scripts), nunca como texto dentro del título (`task` / `project` /
+`title`).
 
-- **Task / Project**: Claude elige el emoji según el tema de la entrada (ej.
-  🐛 bug, 🎨 diseño, 📝 contenido/escritura, 🚀 lanzamiento, 💡 idea, 🔧
-  configuración/infra, 📚 estudio, 💰 finanzas). Si ninguno calza, usar 📌.
-- **Session**: siempre ⏱️ (cronómetro), sin excepción.
+- **Task / Project**: el JSON enviado a `task-write.py` / `project-write.py`
+  incluye un campo `emoji` separado del título. Claude elige el emoji según
+  el tema de la entrada (ej. 🐛 bug, 🎨 diseño, 📝 contenido/escritura, 🚀
+  lanzamiento, 💡 idea, 🔧 configuración/infra, 📚 estudio, 💰 finanzas). Si
+  ninguno calza, usar 📌.
+- **Session**: `session-create.py` setea siempre ⏱️ como ícono — no requiere
+  campo `emoji`.
 
-Ejemplos: `🐛 Arreglar bug de login`, `⏱️ Session — 2026-06-08 — Mixed`.
+Ejemplos:
+- Task: `{"task": "Arreglar bug de login", "emoji": "🐛"}` → título "Arreglar
+  bug de login" con ícono 🐛.
+- Session: `{"title": "Session — 2026-06-08 — Mixed"}` → ícono ⏱️ automático.
 
 ## Infraestructura compartida
 

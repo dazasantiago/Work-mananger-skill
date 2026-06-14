@@ -72,14 +72,20 @@ class NotionClient:
             cursor = resp["next_cursor"]
         return results
 
-    def create_page(self, database_id: str, properties: dict) -> dict:
-        return self._request("POST", "/pages", json={
+    def create_page(self, database_id: str, properties: dict, icon: str = None) -> dict:
+        payload = {
             "parent": {"database_id": database_id},
             "properties": properties,
-        })
+        }
+        if icon:
+            payload["icon"] = {"type": "emoji", "emoji": icon}
+        return self._request("POST", "/pages", json=payload)
 
-    def update_page(self, page_id: str, properties: dict) -> dict:
-        return self._request("PATCH", f"/pages/{page_id}", json={"properties": properties})
+    def update_page(self, page_id: str, properties: dict, icon: str = None) -> dict:
+        payload = {"properties": properties}
+        if icon:
+            payload["icon"] = {"type": "emoji", "emoji": icon}
+        return self._request("PATCH", f"/pages/{page_id}", json=payload)
 
     def delete_page(self, page_id: str) -> dict:
         return self._request("PATCH", f"/pages/{page_id}", json={"in_trash": True})

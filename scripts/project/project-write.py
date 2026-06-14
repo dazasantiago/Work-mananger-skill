@@ -8,7 +8,8 @@ Usage:
 JSON shape:
     {
         "id":      "notion-page-id",   # omit to create a new project
-        "project": "Project name",      # required on create
+        "project": "Project name",      # required on create, no emoji
+        "emoji":   "🚀",                # required on create, sets page icon
         "type":    "Software Development | Content Creation",
         "status":  "Active | Backlog | Idea",
         "context": "texto libre"
@@ -16,6 +17,8 @@ JSON shape:
 
 Rules:
 - create: "project" required. "status" defaults to "Idea" if not provided.
+- "emoji" sets the page icon (Notion icon field), not the title text.
+  Required on create; on edit, only changes the icon if provided.
 - Only fields present in the input JSON are written (partial update on edit)
 
 Output (stdout): {"id": "<notion-page-id>", "created": true|false}
@@ -59,12 +62,13 @@ def main():
 
     creating = "id" not in data
     props = build_properties(data, creating)
+    icon = data.get("emoji")
 
     if creating:
-        page = client.create_page(PROJECTS_DB, props)
+        page = client.create_page(PROJECTS_DB, props, icon=icon)
         result = {"id": page["id"], "created": True}
     else:
-        client.update_page(data["id"], props)
+        client.update_page(data["id"], props, icon=icon)
         result = {"id": data["id"], "created": False}
 
     print(json.dumps(result, ensure_ascii=False))

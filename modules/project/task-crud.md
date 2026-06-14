@@ -23,8 +23,9 @@ Cuando el usuario menciona una tarea o proyecto por nombre:
 ## 3. Crear tarea
 
 Datos a confirmar con el usuario:
-- `task` (título) — requerido. Anteponer un emoji elegido según el tema de
-  la tarea (ver "Regla global: Emoji en el título al crear" en `SKILL.md`)
+- `task` (título, sin emoji) — requerido
+- `emoji` — requerido. Elegirlo según el tema de la tarea (ver "Regla global:
+  Emoji como ícono de página al crear" en `SKILL.md`)
 - `project_id` — preguntar siempre "¿A qué proyecto pertenece?" salvo que el
   usuario ya lo haya dicho. Si dice que no aplica a ningún proyecto, omitir
 - `deadline` — opcional, preguntar solo si parece relevante
@@ -45,6 +46,7 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py" "<j
 ```json
 {
     "task": "Nombre de la tarea",
+    "emoji": "🐛",
     "project_id": "notion-page-id",
     "deadline": "YYYY-MM-DD",
     "left_min": 30

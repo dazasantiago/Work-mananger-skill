@@ -7,11 +7,13 @@ Usage:
 
 JSON shape:
     {
-        "title":       "Session — 2026-06-08 — Ritto",
+        "title":       "Session — 2026-06-08 — Ritto",   # no emoji
         "date":        "2026-06-08",
         "planned_min": 90,
         "task_ids":    ["notion-page-id-1", "notion-page-id-2"]
     }
+
+The page icon is always set to ⏱️ (no "emoji" field needed).
 
 Output (stdout): {"session_id": "<notion-page-id>", "prev_statuses": {"<task-id>": "<prev-status>", ...}}
 """
@@ -56,7 +58,7 @@ def main():
     if task_ids:
         properties["Tasks"] = {"relation": [{"id": tid} for tid in task_ids]}
 
-    session = client.create_page(SESSIONS_DB, properties)
+    session = client.create_page(SESSIONS_DB, properties, icon="⏱️")
     session_id = session["id"]
 
     # Mark approved tasks as En progreso
