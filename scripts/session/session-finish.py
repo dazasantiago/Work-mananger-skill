@@ -37,10 +37,12 @@ Rules:
     actual==0, existing task → skip task update; remove from session relation
     actual==0, is_new task   → still created, Status=Pendiente, Left=left_min
 - removed (user removed the task from the session in the widget)
-    existing task → page untouched; removed from session relation
-    is_new task   → still created in Tasks DB (Status=Pendiente, Left=left_min,
-                     Actual=initial+session), but NOT added to the session's
-                     Tasks relation
+    existing task → if session>0, Left=max(0,left-session) and
+                     Actual=initial+session are saved before removing from
+                     the session relation; otherwise page untouched
+    is_new task   → still created in Tasks DB (Status=Pendiente,
+                     Left=max(0,left-session), Actual=initial+session), but
+                     NOT added to the session's Tasks relation
 
 - is_new tasks (added from the widget mid-session) are created in Tasks DB
   instead of updated. "project" is a project NAME (not an id): if
@@ -114,11 +116,12 @@ def main():
         new_actual = initial_act + session_time
 
         if status == "removed":
+            new_left = max(0, left_min - session_time) if session_time > 0 else left_min
             if is_new:
                 props = {
                     "Task":              {"title": [{"text": {"content": t.get("name", "")}}]},
                     "Status":            {"select": {"name": "Pendiente"}},
-                    "Left (min)":        {"number": left_min},
+                    "Left (min)":        {"number": new_left},
                     "Actual time (min)": {"number": new_actual},
                 }
                 if notes:
@@ -128,6 +131,11 @@ def main():
                     props["Project"] = {"relation": [{"id": project_id}]}
                 client.create_page(TASKS_DB, props)
             else:
+                if session_time > 0:
+                    client.update_page(task_id, {
+                        "Left (min)":        {"number": new_left},
+                        "Actual time (min)": {"number": new_actual},
+                    })
                 removed_task_ids.append(task_id)
             if i < len(tasks) - 1:
                 time.sleep(0.35)

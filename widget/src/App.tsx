@@ -199,11 +199,26 @@ function reducer(state: State, action: Action): State {
       const now = Date.now();
       const settled = settle(state.tasks, now);
       const blockId = task.blockId;
+      const wasFront = state.currentId === task.id;
       let out = settled.map(t => (t.id === action.id ? { ...t, blockId: null } : t));
       // A block of one is just a task — dissolve it.
       const remaining = out.filter(t => t.blockId === blockId);
       if (remaining.length === 1) {
         out = out.map(t => (t.id === remaining[0].id ? { ...t, blockId: null } : t));
+      }
+      // The unmerged task was the front block's head, so it's still first in
+      // array order — `finalize` would otherwise flip the active slot to it
+      // instead of leaving the remaining block running. Demote it past the
+      // remaining members so they stay the front.
+      if (wasFront) {
+        const remainingIds = new Set(remaining.map(t => t.id));
+        const idx = out.findIndex(t => t.id === action.id);
+        const [unmerged] = out.splice(idx, 1);
+        let insertAt = out.length;
+        for (let i = 0; i < out.length; i++) {
+          if (remainingIds.has(out[i].id)) insertAt = i + 1;
+        }
+        out.splice(insertAt, 0, unmerged);
       }
       return finalize(out, state.paused, state.removedTasks);
     }
@@ -269,6 +284,8 @@ export default function App() {
   const tasksRef = useRef<Task[]>([]);
   const removedTasksRef = useRef<Task[]>([]);
   const taskListRef = useRef<HTMLDivElement>(null);
+  const bottomBarRef = useRef<HTMLDivElement>(null);
+  const baseBottomBarHeightRef = useRef<number | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   const now = useNow();
@@ -332,6 +349,26 @@ export default function App() {
       if (timer) clearTimeout(timer);
     };
   }, []);
+
+  // Grow/shrink the window so the add-task picker/form always fits — the
+  // first observed height becomes the baseline (normal, closed state), and
+  // any extra height beyond that (the picker's filters/list/actions) is
+  // added on top of `normalHeight`.
+  useEffect(() => {
+    const el = bottomBarRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => {
+      if (baseBottomBarHeightRef.current === null) {
+        baseBottomBarHeightRef.current = el.offsetHeight;
+        return;
+      }
+      const extra = Math.max(0, el.offsetHeight - baseBottomBarHeightRef.current);
+      const h = Math.max(360, Math.min(window.screen.height - 90, normalHeight + extra));
+      setWindowSize(380, h);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [normalHeight]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -512,19 +549,34 @@ export default function App() {
   function handleRowDrag(draggedId: string, point: { x: number; y: number }) {
     let result: Drop | null = null;
     const rows = taskListRef.current?.querySelectorAll<HTMLElement>('[data-row-id]') ?? [];
-    for (const el of rows) {
-      const id = el.dataset.rowId!;
-      if (id === draggedId) continue;
-      const r = el.getBoundingClientRect();
-      if (point.y < r.top || point.y > r.bottom) continue;
-      const mergeTop = r.top + r.height * 0.3;
-      const mergeBottom = r.bottom - r.height * 0.3;
-      if (point.y >= mergeTop && point.y <= mergeBottom) {
-        result = { targetId: id, mode: 'merge' };
-      } else {
-        result = { targetId: id, mode: point.y < mergeTop ? 'before' : 'after' };
+
+    // Dragging above the top of the list always targets "before the first
+    // row" — no matter how far up — so reaching the very top doesn't
+    // require landing inside a thin band right above it.
+    const first = rows[0];
+    if (first && first.dataset.rowId !== draggedId) {
+      const r0 = first.getBoundingClientRect();
+      if (point.y < r0.top + r0.height * 0.5) {
+        result = { targetId: first.dataset.rowId!, mode: 'before' };
       }
-      break;
+    }
+
+    if (!result) {
+      for (let i = 0; i < rows.length; i++) {
+        const el = rows[i];
+        const id = el.dataset.rowId!;
+        if (id === draggedId) continue;
+        const r = el.getBoundingClientRect();
+        if (point.y < r.top || point.y > r.bottom) continue;
+        const mergeTop = r.top + r.height * 0.3;
+        const mergeBottom = r.bottom - r.height * 0.3;
+        if (point.y >= mergeTop && point.y <= mergeBottom) {
+          result = { targetId: id, mode: 'merge' };
+        } else {
+          result = { targetId: id, mode: point.y < mergeTop ? 'before' : 'after' };
+        }
+        break;
+      }
     }
     if (
       result?.targetId !== dropRef.current?.targetId ||
@@ -638,7 +690,7 @@ export default function App() {
                     </AnimatePresence>
                   </div>
 
-                  <div className="bottom-bar">
+                  <div className="bottom-bar" ref={bottomBarRef}>
                     <div className="add-row">
                       <AnimatePresence mode="wait">
                         {addView === 'form' ? (
