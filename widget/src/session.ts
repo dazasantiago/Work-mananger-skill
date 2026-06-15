@@ -1,4 +1,4 @@
-import type { Task, SessionData, FinishPayload, CancelPayload } from './types';
+import type { Task, SessionData, FinishPayload, FinishTask, CancelPayload } from './types';
 import { liveMs } from './useNow';
 
 // Each task has exactly one clock: `accumulated_ms`/`running_since`, ticking
@@ -39,8 +39,35 @@ export function generateSummary(
   return parts.join(' ');
 }
 
+// Shared per-task mapper for the finish payload. `tasks` is the active list,
+// used for block-rate lookups in `effectiveMs` — removed tasks have no
+// `blockId`, so it's irrelevant for them and the same array works for both.
+// `forcedStatus` overrides the derived done/in_progress/not_started status,
+// used for tasks the user removed from the session mid-way.
+function mapTask(tasks: Task[], t: Task, now: number, forcedStatus?: 'removed'): FinishTask {
+  const ms = effectiveMs(tasks, t, now);
+  let status: FinishTask['status'];
+  if (forcedStatus) status = forcedStatus;
+  else if (t.status === 'done') status = 'done';
+  else if (ms > 0) status = 'in_progress';
+  else status = 'not_started';
+  return {
+    id: t.id,
+    name: t.name,
+    project: t.project,
+    project_is_new: t.project_is_new,
+    left_min: t.left_min,
+    initial_actual_min: t.initial_actual_min,
+    actual_min: Math.round(ms / 60000),
+    status,
+    notes: t.notes,
+    is_new: t.is_new,
+  };
+}
+
 export function buildFinishPayload(
   tasks: Task[],
+  removedTasks: Task[],
   session: SessionData,
   sessionStart: number,
 ): FinishPayload {
@@ -56,31 +83,16 @@ export function buildFinishPayload(
     start: new Date(sessionStart).toISOString(),
     end: new Date(now).toISOString(),
     summary,
-    tasks: tasks.map(t => {
-      const ms = effectiveMs(tasks, t, now);
-      let status: 'done' | 'in_progress' | 'not_started';
-      if (t.status === 'done') status = 'done';
-      else if (ms > 0) status = 'in_progress';
-      else status = 'not_started';
-      return {
-        id: t.id,
-        name: t.name,
-        project: t.project,
-        project_is_new: t.project_is_new,
-        left_min: t.left_min,
-        initial_actual_min: t.initial_actual_min,
-        actual_min: Math.round(ms / 60000),
-        status,
-        notes: t.notes,
-        is_new: t.is_new,
-      };
-    }),
+    tasks: [
+      ...tasks.map(t => mapTask(tasks, t, now)),
+      ...removedTasks.map(t => mapTask(tasks, t, now, 'removed')),
+    ],
   };
 }
 
-export function buildCancelPayload(tasks: Task[], session: SessionData): CancelPayload {
+export function buildCancelPayload(tasks: Task[], removedTasks: Task[], session: SessionData): CancelPayload {
   return {
     session_id: session.session_id,
-    tasks: tasks.filter(t => !t.is_new).map(t => ({ id: t.id, prev_status: t.prev_status })),
+    tasks: [...tasks, ...removedTasks].filter(t => !t.is_new).map(t => ({ id: t.id, prev_status: t.prev_status })),
   };
 }

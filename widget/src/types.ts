@@ -7,12 +7,24 @@ export interface RawTask {
   prev_status?: string;
 }
 
+// A Notion task with Status "Pendiente" or "En progreso" that isn't part of
+// this session yet — candidates for "+ Add task"'s picker list.
+export interface AvailableTask {
+  id: string;
+  name: string;
+  project?: string;
+  status: string;
+  left_min?: number;
+  initial_actual_min?: number;
+}
+
 export interface SessionData {
   session_id: string;
   session_title: string;
   planned_min: number;
   projects: string[];
   tasks: RawTask[];
+  available_tasks?: AvailableTask[];
 }
 
 export type TaskStatus = 'pending' | 'done';
@@ -56,7 +68,7 @@ export interface FinishTask {
   left_min: number | null;
   initial_actual_min: number;
   actual_min: number;
-  status: 'done' | 'in_progress' | 'not_started';
+  status: 'done' | 'in_progress' | 'not_started' | 'removed';
   notes: string;
   is_new: boolean;
 }

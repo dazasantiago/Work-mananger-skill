@@ -12,6 +12,7 @@ interface Props {
   dropEdge?: 'before' | 'after';
   onDone: (id: string) => void;
   onUndo: (id: string) => void;
+  onRemove: (id: string) => void;
   onToggleNotes: (id: string) => void;
   onSetNotes: (id: string, notes: string) => void;
   onDrag?: (point: { x: number; y: number }) => void;
@@ -27,6 +28,7 @@ export default function TaskRow({
   dropEdge,
   onDone,
   onUndo,
+  onRemove,
   onToggleNotes,
   onSetNotes,
   onDrag,
@@ -112,6 +114,9 @@ export default function TaskRow({
               Done ✓
             </button>
           )}
+          <button className="remove-btn" title="Quitar de la sesión" onClick={() => onRemove(task.id)}>
+            ✕
+          </button>
         </div>
       </div>
 

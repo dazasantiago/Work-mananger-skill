@@ -122,6 +122,16 @@ Write puede sobreescribirlo directamente):
             "initial_actual_min": 0,
             "prev_status": "Pendiente"
         }
+    ],
+    "available_tasks": [
+        {
+            "id": "<task-id>",
+            "name": "Nombre tarea",
+            "project": "Proyecto A",
+            "status": "Pendiente",
+            "left_min": 30,
+            "initial_actual_min": 0
+        }
     ]
 }
 ```
@@ -133,6 +143,23 @@ para el dropdown de proyecto en "+ Add task", y debe poder asignar cualquier
 proyecto existente, no solo los que ya están en el plan.
 
 El campo `prev_status` por task viene de `prev_statuses[task_id]` en el output del script. Es necesario para poder cancelar la sesión.
+
+`available_tasks` es **todo** el array `tasks` del output del paso 1 (todas
+las tasks con Status Pendiente o En progreso, aprobadas o no para esta
+sesión), mapeando cada entrada así:
+
+| Campo `available_tasks` | Viene de (output paso 1) |
+|---|---|
+| `id`                 | `id` |
+| `name`               | `Task` |
+| `project`            | `Project` (si existe) |
+| `status`             | `Status` |
+| `left_min`           | `Left (min)` (si existe) |
+| `initial_actual_min` | `Actual time (min)` (si existe, default 0) |
+
+El widget usa `available_tasks` para el picker de "+ Add task": al abrirlo
+muestra esta lista (filtrando las que ya están en `tasks`) para agregarlas a
+la sesión sin tener que crearlas desde cero.
 
 ## 9. Lanzar el widget
 

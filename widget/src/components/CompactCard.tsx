@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Task } from '../types';
 import { fmt, liveMs } from '../useNow';
-import { getWindowOuterY, moveCompactVertical } from '../window';
+import { getWindowOuterPosition, moveCompactFree, finishCompactDrag } from '../window';
 
 interface Props {
   plannedMin: number;
@@ -9,6 +9,8 @@ interface Props {
   members: Task[];
   now: number;
   isPaused: boolean;
+  normalWidth: number;
+  normalHeight: number;
   onTogglePause: () => void;
   onExpand: () => void;
   onDone: (id: string) => void;
@@ -17,13 +19,15 @@ interface Props {
 }
 
 interface DragState {
+  startMouseScreenX: number;
   startMouseScreenY: number;
+  startWinPhysX: number;
   startWinPhysY: number;
   pending: boolean;
 }
 
 export default function CompactCard({
-  plannedMin, sessionStart, members, now, isPaused, onTogglePause, onExpand,
+  plannedMin, sessionStart, members, now, isPaused, normalWidth, normalHeight, onTogglePause, onExpand,
   onDone, onToggleNotes, onSetNotes,
 }: Props) {
   const dragRef = useRef<DragState | null>(null);
@@ -39,31 +43,38 @@ export default function CompactCard({
   useEffect(() => {
     const handleMouseMove = async (e: MouseEvent) => {
       const drag = dragRef.current;
-      if (!drag || drag.pending || drag.startWinPhysY === -1) return;
+      if (!drag || drag.pending || drag.startWinPhysX === -1) return;
+      const targetPhysX = drag.startWinPhysX + (e.screenX - drag.startMouseScreenX) * window.devicePixelRatio;
       const targetPhysY = drag.startWinPhysY + (e.screenY - drag.startMouseScreenY) * window.devicePixelRatio;
       drag.pending = true;
-      try { await moveCompactVertical(targetPhysY); } finally { drag.pending = false; }
+      try { await moveCompactFree(targetPhysX, targetPhysY); } finally { drag.pending = false; }
     };
-    const handleMouseUp = () => { dragRef.current = null; };
+    const handleMouseUp = async () => {
+      if (!dragRef.current) return;
+      dragRef.current = null;
+      await finishCompactDrag(normalWidth, normalHeight, onExpand);
+    };
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [normalWidth, normalHeight, onExpand]);
 
   async function handleMouseDown(e: React.MouseEvent) {
     e.stopPropagation();
-    dragRef.current = { startMouseScreenY: e.screenY, startWinPhysY: -1, pending: false };
-    const winY = await getWindowOuterY();
-    if (dragRef.current) dragRef.current.startWinPhysY = winY;
+    dragRef.current = {
+      startMouseScreenX: e.screenX, startMouseScreenY: e.screenY,
+      startWinPhysX: -1, startWinPhysY: -1, pending: false,
+    };
+    const pos = await getWindowOuterPosition();
+    if (dragRef.current) { dragRef.current.startWinPhysX = pos.x; dragRef.current.startWinPhysY = pos.y; }
   }
 
   return (
     <div className="compact-view" onMouseDown={handleMouseDown}>
       <div className="compact-top">
-        <div className="expand-arrow" title="Expandir" onMouseDown={e => e.stopPropagation()} onClick={onExpand}>⟵</div>
         <div className="compact-timer-wrap">
           <span className="compact-timer">{elapsed}</span>
           <span className="compact-planned"> / {plannedMin} min</span>

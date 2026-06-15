@@ -8,5 +8,13 @@
     { "id": "def456", "name": "Escribir tests de integración", "project": "Ritto", "left_min": 25, "initial_actual_min": 10, "prev_status": "En progreso" },
     { "id": "ghi789", "name": "Preparar presentación", "project": "Universidad", "left_min": 20, "initial_actual_min": 0, "prev_status": "Pendiente" },
     { "id": "jkl012", "name": "Revisar PRs pendientes", "project": "Personal", "prev_status": "Pendiente" }
+  ],
+  "available_tasks": [
+    { "id": "abc123", "name": "Revisar arquitectura del widget", "project": "Ritto", "status": "En progreso", "left_min": 30, "initial_actual_min": 0 },
+    { "id": "mno345", "name": "Refactor del cliente de Notion", "project": "Ritto", "status": "Pendiente", "left_min": 45, "initial_actual_min": 0 },
+    { "id": "pqr678", "name": "Setear CI para el widget", "project": "OpenClaw", "status": "En progreso", "left_min": 15, "initial_actual_min": 5 },
+    { "id": "stu901", "name": "Leer paper de sistemas distribuidos", "project": "Universidad", "status": "Pendiente", "left_min": 90, "initial_actual_min": 0 },
+    { "id": "vwx234", "name": "Responder mails pendientes", "project": "Personal", "status": "Pendiente", "left_min": 10, "initial_actual_min": 0 },
+    { "id": "yz5678", "name": "Idea suelta sin estimar", "status": "Pendiente" }
   ]
 }

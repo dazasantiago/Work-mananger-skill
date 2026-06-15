@@ -12,6 +12,7 @@ interface Props {
   dropEdge?: 'before' | 'after';
   onDone: (id: string) => void;
   onUnmerge: (id: string) => void;
+  onRemove: (id: string) => void;
   onDrag: (point: { x: number; y: number }) => void;
   onDragEnd: () => void;
 }
@@ -25,6 +26,7 @@ export default function BlockRow({
   dropEdge,
   onDone,
   onUnmerge,
+  onRemove,
   onDrag,
   onDragEnd,
 }: Props) {
@@ -100,6 +102,7 @@ export default function BlockRow({
             blockSize={members.length}
             onDone={() => onDone(m.id)}
             onUnmerge={() => onUnmerge(m.id)}
+            onRemove={() => onRemove(m.id)}
           />
         ))}
       </div>
@@ -113,12 +116,14 @@ function BlockSubRow({
   blockSize,
   onDone,
   onUnmerge,
+  onRemove,
 }: {
   task: Task;
   now: number;
   blockSize: number;
   onDone: () => void;
   onUnmerge: () => void;
+  onRemove: () => void;
 }) {
   const elapsed = liveMs(task, now, blockSize);
   const isOver = task.left_min ? (elapsed / 60000) >= task.left_min : false;
@@ -145,6 +150,14 @@ function BlockSubRow({
         onClick={() => onDone()}
       >
         Done ✓
+      </button>
+      <button
+        className="block-subrow-remove"
+        onPointerDown={e => e.stopPropagation()}
+        onClick={() => onRemove()}
+        title="Quitar de la sesión"
+      >
+        ✕
       </button>
     </motion.div>
   );

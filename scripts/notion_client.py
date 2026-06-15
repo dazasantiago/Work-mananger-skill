@@ -8,9 +8,20 @@ import time
 from pathlib import Path
 
 import requests
-from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).parent.parent / ".env")
+
+def _load_env_file(path: Path) -> None:
+    if not path.exists():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        os.environ.setdefault(key.strip(), value.strip())
+
+
+_load_env_file(Path(__file__).parent.parent / ".env")
 
 # ── Database IDs (used as parent in create_page) ──────────────────────────────
 TASKS_DB    = "e882c0f07df84a3ca7742a67f264cd27"
@@ -49,7 +60,8 @@ class NotionClient:
             if resp.status_code in (500, 503):
                 time.sleep(2 ** attempt)
                 continue
-            resp.raise_for_status()
+            if not resp.ok:
+                raise RuntimeError(f"{method} {path} -> {resp.status_code}: {resp.text}")
             return resp.json()
         raise RuntimeError(f"Max retries for {method} {path}")
 

@@ -9,14 +9,14 @@ import {
   showWindow,
   closeWindow,
   checkDockPosition,
-  exitCompactCentered,
   listenToMoved,
 } from './window';
-import type { SessionData, Task, TaskStatus, AppView } from './types';
+import type { SessionData, Task, TaskStatus, AppView, AvailableTask } from './types';
 import Header from './components/Header';
 import TaskRow from './components/TaskRow';
 import BlockRow from './components/BlockRow';
 import AddTaskForm from './components/AddTaskForm';
+import AddTaskPicker from './components/AddTaskPicker';
 import Controls from './components/Controls';
 import CompactCard from './components/CompactCard';
 
@@ -39,6 +39,7 @@ interface State {
   tasks: Task[];
   currentId: string | null;
   paused: boolean;
+  removedTasks: Task[];
 }
 
 type Action =
@@ -51,12 +52,13 @@ type Action =
   | { type: 'TOGGLE_NOTES'; id: string }
   | { type: 'SET_NOTES'; id: string; notes: string }
   | { type: 'MERGE'; sourceId: string; targetId: string }
-  | { type: 'UNMERGE'; id: string };
+  | { type: 'UNMERGE'; id: string }
+  | { type: 'REMOVE_TASK'; id: string };
 
 // Starts the clock on the front pending item (a whole block if the front is
 // merged) and stops it on everything else, then derives `currentId` from the
 // same front item. This is the *only* function that mutates `running_since`.
-function finalize(tasks: Task[], paused: boolean): State {
+function finalize(tasks: Task[], paused: boolean, removedTasks: Task[]): State {
   const front = tasks.find(t => t.status !== 'done') ?? null;
   const now = Date.now();
   const runIds =
@@ -78,7 +80,7 @@ function finalize(tasks: Task[], paused: boolean): State {
     return t;
   });
 
-  return { tasks: out, currentId: front ? front.id : null, paused };
+  return { tasks: out, currentId: front ? front.id : null, paused, removedTasks };
 }
 
 // Freezes every running task's clock at `now`, baking in whatever rate
@@ -98,7 +100,7 @@ function settle(tasks: Task[], now: number): Task[] {
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'INIT':
-      return finalize(action.tasks, false);
+      return finalize(action.tasks, false, []);
 
     // Completes a single task on its own. If it's part of a block, it's
     // peeled out (its own clock — already running at 1/N speed — is baked
@@ -119,7 +121,7 @@ function reducer(state: State, action: Action): State {
           out = out.map(t => (t.id === remaining[0].id ? { ...t, blockId: null } : t));
         }
       }
-      return finalize(out, state.paused);
+      return finalize(out, state.paused, state.removedTasks);
     }
 
     case 'UNDO_TASK': {
@@ -134,17 +136,17 @@ function reducer(state: State, action: Action): State {
       let lastPending = -1;
       out.forEach((t, i) => { if (t.status !== 'done') lastPending = i; });
       out.splice(lastPending + 1, 0, revived);
-      return finalize(out, state.paused);
+      return finalize(out, state.paused, state.removedTasks);
     }
 
     case 'ADD_TASK':
-      return finalize([...state.tasks, action.task], state.paused);
+      return finalize([...state.tasks, action.task], state.paused, state.removedTasks);
 
     case 'SET_PAUSED':
-      return finalize(state.tasks, action.paused);
+      return finalize(state.tasks, action.paused, state.removedTasks);
 
     case 'REORDER':
-      return finalize(action.tasks, state.paused);
+      return finalize(action.tasks, state.paused, state.removedTasks);
 
     case 'TOGGLE_NOTES':
       return {
@@ -188,7 +190,7 @@ function reducer(state: State, action: Action): State {
         if (rest[i].blockId === blockId) insertAt = i + 1;
       }
       rest.splice(insertAt, 0, ...moving);
-      return finalize(rest, state.paused);
+      return finalize(rest, state.paused, state.removedTasks);
     }
 
     case 'UNMERGE': {
@@ -203,7 +205,27 @@ function reducer(state: State, action: Action): State {
       if (remaining.length === 1) {
         out = out.map(t => (t.id === remaining[0].id ? { ...t, blockId: null } : t));
       }
-      return finalize(out, state.paused);
+      return finalize(out, state.paused, state.removedTasks);
+    }
+
+    // Un-approves a task from the current session. Its clock is frozen
+    // (mirrors DONE_TASK) and it moves into `removedTasks`, which doesn't
+    // feed `finalize`'s "first pending task runs" logic at all.
+    case 'REMOVE_TASK': {
+      const target = state.tasks.find(t => t.id === action.id);
+      if (!target) return state;
+      const now = Date.now();
+      const settled = settle(state.tasks, now);
+      const removed = settled.find(t => t.id === action.id)!;
+      let out = settled.filter(t => t.id !== action.id);
+      if (target.blockId) {
+        const remaining = out.filter(t => t.blockId === target.blockId);
+        if (remaining.length === 1) {
+          out = out.map(t => (t.id === remaining[0].id ? { ...t, blockId: null } : t));
+        }
+      }
+      const snapshot: Task = { ...removed, running_since: null, blockId: null };
+      return finalize(out, state.paused, [...state.removedTasks, snapshot]);
     }
 
     default:
@@ -231,11 +253,11 @@ type Drop = { targetId: string; mode: 'merge' | 'before' | 'after' };
 
 export default function App() {
   const [session, setSession] = useState<SessionData | null>(null);
-  const [{ tasks, currentId }, dispatch] = useReducer(reducer, { tasks: [], currentId: null, paused: false });
+  const [{ tasks, currentId, removedTasks }, dispatch] = useReducer(reducer, { tasks: [], currentId: null, paused: false, removedTasks: [] });
   const [sessionStart, setSessionStart] = useState(() => Date.now());
   const [pausedAt, setPausedAt] = useState<number | null>(null);
   const [view, setView] = useState<AppView>('session');
-  const [addFormOpen, setAddFormOpen] = useState(false);
+  const [addView, setAddView] = useState<'closed' | 'picker' | 'form'>('closed');
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -245,12 +267,14 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState('');
   const isCompactRef = useRef(false);
   const tasksRef = useRef<Task[]>([]);
+  const removedTasksRef = useRef<Task[]>([]);
   const taskListRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<Drop | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   const now = useNow();
 
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
+  useEffect(() => { removedTasksRef.current = removedTasks; }, [removedTasks]);
 
   useEffect(() => {
     async function load() {
@@ -339,7 +363,40 @@ export default function App() {
       blockId: null,
     };
     dispatch({ type: 'ADD_TASK', task });
-    setAddFormOpen(false);
+    if (leftMin) growPlannedMin(leftMin);
+    setAddView('closed');
+  }
+
+  // Adds a task picked from the Notion pending/in-progress pool. It already
+  // exists in Notion, so it's not `is_new` and `prev_status` is its current
+  // status there (matches what session-cancel.py would (no-op) revert it to).
+  function addExistingTask(picked: AvailableTask) {
+    const task: Task = {
+      id: picked.id,
+      name: picked.name,
+      project: picked.project ?? null,
+      left_min: picked.left_min ?? null,
+      initial_actual_min: picked.initial_actual_min ?? 0,
+      prev_status: picked.status,
+      status: 'pending',
+      accumulated_ms: 0,
+      running_since: null,
+      notes: '',
+      notesOpen: false,
+      is_new: false,
+      project_is_new: false,
+      color: colorForTask(tasks.length),
+      blockId: null,
+    };
+    dispatch({ type: 'ADD_TASK', task });
+    if (picked.left_min) growPlannedMin(picked.left_min);
+    setAddView('closed');
+  }
+
+  // Adding a task with an estimate grows the session's planned total, so the
+  // header reflects the extra work just taken on.
+  function growPlannedMin(extraMin: number) {
+    setSession(s => (s ? { ...s, planned_min: s.planned_min + extraMin } : s));
   }
 
   async function confirmCloseSession() {
@@ -347,7 +404,7 @@ export default function App() {
     setCloseConfirmOpen(false);
     setView('finishing');
 
-    const payload = buildFinishPayload(tasksRef.current, session!, sessionStart);
+    const payload = buildFinishPayload(tasksRef.current, removedTasksRef.current, session!, sessionStart);
 
     try {
       const result = await invoke<{ ok: boolean; kept: number; removed: number }>('finish_session', {
@@ -370,7 +427,7 @@ export default function App() {
     setCancelConfirmOpen(false);
     setView('cancelling');
 
-    const payload = buildCancelPayload(tasksRef.current, session!);
+    const payload = buildCancelPayload(tasksRef.current, removedTasksRef.current, session!);
 
     try {
       const result = await invoke<{ ok: boolean; reverted: number }>('cancel_session', {
@@ -388,12 +445,17 @@ export default function App() {
     }
   }
 
-  function handleExpand() {
-    exitCompactCentered(380, normalHeight, () => setIsCompact(false));
-  }
-
   function unmergeTask(id: string) {
     dispatch({ type: 'UNMERGE', id });
+  }
+
+  // Un-approves a task from the current session — it's not deleted from
+  // Notion, just dropped from this session's Tasks relation at finish time.
+  // If it had an estimate, shrink the planned total back down to match.
+  function removeTask(id: string) {
+    const task = tasks.find(t => t.id === id);
+    dispatch({ type: 'REMOVE_TASK', id });
+    if (task?.left_min) growPlannedMin(-task.left_min);
   }
 
   function togglePause() {
@@ -534,6 +596,7 @@ export default function App() {
                             dropEdge={dropEdgeFor(task.id)}
                             onDone={doneTask}
                             onUnmerge={unmergeTask}
+                            onRemove={removeTask}
                             onDrag={(point) => handleRowDrag(task.id, point)}
                             onDragEnd={() => handleRowDragEnd(task.id)}
                           />
@@ -548,6 +611,7 @@ export default function App() {
                             dropEdge={dropEdgeFor(task.id)}
                             onDone={doneTask}
                             onUndo={undoTask}
+                            onRemove={removeTask}
                             onToggleNotes={(id) => dispatch({ type: 'TOGGLE_NOTES', id })}
                             onSetNotes={(id, notes) => dispatch({ type: 'SET_NOTES', id, notes })}
                             onDrag={(point) => handleRowDrag(task.id, point)}
@@ -566,6 +630,7 @@ export default function App() {
                           now={now}
                           onDone={doneTask}
                           onUndo={undoTask}
+                          onRemove={removeTask}
                           onToggleNotes={(id) => dispatch({ type: 'TOGGLE_NOTES', id })}
                           onSetNotes={(id, notes) => dispatch({ type: 'SET_NOTES', id, notes })}
                         />
@@ -576,7 +641,7 @@ export default function App() {
                   <div className="bottom-bar">
                     <div className="add-row">
                       <AnimatePresence mode="wait">
-                        {addFormOpen ? (
+                        {addView === 'form' ? (
                           <motion.div
                             key="form"
                             initial={{ opacity: 0, height: 0 }}
@@ -587,14 +652,30 @@ export default function App() {
                             <AddTaskForm
                               projects={session.projects}
                               onAdd={addTask}
-                              onCancel={() => setAddFormOpen(false)}
+                              onCancel={() => setAddView('closed')}
+                            />
+                          </motion.div>
+                        ) : addView === 'picker' ? (
+                          <motion.div
+                            key="picker"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <AddTaskPicker
+                              availableTasks={session.available_tasks ?? []}
+                              excludeIds={new Set(tasks.map(t => t.id))}
+                              onPick={addExistingTask}
+                              onCreateNew={() => setAddView('form')}
+                              onCancel={() => setAddView('closed')}
                             />
                           </motion.div>
                         ) : (
                           <motion.button
                             key="add-btn"
                             className="add-btn"
-                            onClick={() => setAddFormOpen(true)}
+                            onClick={() => setAddView('picker')}
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -742,8 +823,10 @@ export default function App() {
               members={activeMembers}
               now={displayNow}
               isPaused={isPaused}
+              normalWidth={380}
+              normalHeight={normalHeight}
               onTogglePause={togglePause}
-              onExpand={handleExpand}
+              onExpand={() => setIsCompact(false)}
               onDone={doneTask}
               onToggleNotes={(id) => dispatch({ type: 'TOGGLE_NOTES', id })}
               onSetNotes={(id, notes) => dispatch({ type: 'SET_NOTES', id, notes })}
