@@ -1,6 +1,6 @@
 import { motion, useDragControls } from 'framer-motion';
 import type { Task } from '../types';
-import { fmt, liveMs } from '../useNow';
+import { fmt, liveMs, displayMs } from '../useNow';
 import { hexToRgba } from '../colors';
 
 interface Props {
@@ -35,9 +35,10 @@ export default function TaskRow({
   onDragEnd,
 }: Props) {
   const dragControls = useDragControls();
-  const elapsed = liveMs(task, now);
+  const sessionMs = liveMs(task, now);
+  const totalMs = displayMs(task, now);
   const isRunning = task.running_since !== null;
-  const isOver = task.left_min ? (elapsed / 60000) >= task.left_min : false;
+  const isOver = task.left_min ? (sessionMs / 60000) >= task.left_min : false;
   const isDone = task.status === 'done';
   const showHandle = !isDone;
 
@@ -85,9 +86,9 @@ export default function TaskRow({
           <span className="task-meta">{meta}</span>
         </div>
 
-        {task.status !== 'done' && (isRunning || task.accumulated_ms > 0) && (
+        {task.status !== 'done' && (isRunning || task.accumulated_ms > 0 || task.initial_actual_min > 0) && (
           <div className="task-clock-wrap">
-            <span className={`task-clock${isOver ? ' over' : ''}`}>{fmt(elapsed)}</span>
+            <span className={`task-clock${isOver ? ' over' : ''}`}>{fmt(totalMs)}</span>
           </div>
         )}
 
@@ -101,7 +102,7 @@ export default function TaskRow({
           </button>
           {task.status === 'done' ? (
             <>
-              <span className="task-meta">✓ {Math.round(task.accumulated_ms / 60000)} min</span>
+              <span className="task-meta">✓ {Math.round(totalMs / 60000)} min</span>
               <button className="undo-btn" title="Deshacer" onClick={() => onUndo(task.id)}>
                 ↩
               </button>

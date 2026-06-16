@@ -400,7 +400,7 @@ export default function App() {
       blockId: null,
     };
     dispatch({ type: 'ADD_TASK', task });
-    if (leftMin) growPlannedMin(leftMin);
+    if (leftMin && leftMin > 0) growPlannedMin(leftMin);
     setAddView('closed');
   }
 
@@ -426,7 +426,7 @@ export default function App() {
       blockId: null,
     };
     dispatch({ type: 'ADD_TASK', task });
-    if (picked.left_min) growPlannedMin(picked.left_min);
+    if (picked.left_min && picked.left_min > 0) growPlannedMin(picked.left_min);
     setAddView('closed');
   }
 
@@ -492,7 +492,7 @@ export default function App() {
   function removeTask(id: string) {
     const task = tasks.find(t => t.id === id);
     dispatch({ type: 'REMOVE_TASK', id });
-    if (task?.left_min) growPlannedMin(-task.left_min);
+    if (task?.left_min && task.left_min > 0) growPlannedMin(-task.left_min);
   }
 
   function togglePause() {

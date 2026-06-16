@@ -21,7 +21,7 @@ actions/
 │       ├── task-crud.md          # Crear/editar/completar/eliminar tasks ad-hoc
 │       ├── project-crud.md       # Crear/editar/eliminar proyectos, capturar ideas
 │       └── quick-review.md       # Ver pendientes agrupados por proyecto, sin sesión
-├── scripts/                     # Scripts Python que hablan con Notion (única vía permitida)
+├── scripts/                     # Scripts Python — solo para session management y deletes
 │   ├── notion_client.py          # Cliente compartido: DB IDs, helpers de query/update
 │   ├── session/
 │   │   ├── session-fetch-brief.py  # Junta tasks/proyectos/última sesión para el brief
@@ -29,11 +29,11 @@ actions/
 │   │   ├── session-finish.py       # Cierra sesión: actualiza tasks, guarda summary
 │   │   └── session-cancel.py       # Revierte tasks a su status previo, borra sesión
 │   └── project/
-│       ├── fetch-overview.py       # Tasks pendientes + todos los proyectos
-│       ├── task-write.py           # Crea/edita una task (upsert por "id")
-│       ├── task-delete.py          # Borra (in_trash) una task
-│       ├── project-write.py        # Crea/edita un proyecto (upsert por "id")
-│       └── project-delete.py       # Borra (in_trash) un proyecto
+│       ├── fetch-overview.py       # (obsoleto para uso runtime — referencia del schema)
+│       ├── task-write.py           # (obsoleto para uso runtime — reemplazado por MCP)
+│       ├── task-delete.py          # Borra (in_trash) una task — aún activo (MCP no soporta trash)
+│       ├── project-write.py        # (obsoleto para uso runtime — reemplazado por MCP)
+│       └── project-delete.py       # Borra (in_trash) un proyecto — aún activo (MCP no soporta trash)
 └── widget/                       # Widget de escritorio (Tauri 2 + React + TS)
     ├── DEV.md                     # Cómo compilar/probar el widget — leer antes de tocarlo
     ├── dev-session.json           # Datos de prueba (fallback cuando no hay session.json)
@@ -64,6 +64,21 @@ actions/
 4. **Cancel**: igual que finish pero vía `cancel_session` →
    `session-cancel.py`, revierte tasks a `prev_status` y borra la sesión de
    Notion.
+
+## Project Management (MCP)
+
+El módulo de project management usa el **Notion MCP** directamente en lugar de scripts Python, porque sus operaciones son simples (una sola entidad a la vez) y no requieren fetching paralelo:
+
+- **Read** (quick-review, resolución de nombres): `notion-search` con `data_source_url: collection://...`
+- **Create**: `notion-create-pages` con `data_source_id` como parent
+- **Update**: `notion-update-page` con `command: update_properties`
+- **Delete**: sigue usando `task-delete.py` / `project-delete.py` (el MCP no soporta `in_trash`)
+
+Data source URLs conocidas (ver también `scripts/notion_client.py` para IDs):
+- Tasks: `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be`
+- Projects: `collection://7cb2470f-41e2-44d2-927e-7603c8ed80e2`
+
+Los scripts `fetch-overview.py`, `task-write.py`, `project-write.py` quedan en el repo como referencia del schema pero no se usan en runtime.
 
 ## Widget (Tauri + React)
 

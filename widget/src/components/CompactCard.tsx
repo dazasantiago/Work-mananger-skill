@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Task } from '../types';
-import { fmt, liveMs } from '../useNow';
+import { fmt, liveMs, displayMs } from '../useNow';
 import { getWindowOuterPosition, moveCompactFree, finishCompactDrag } from '../window';
 
 interface Props {
@@ -35,10 +35,11 @@ export default function CompactCard({
   const head = members[0] ?? null;
   const cardColor = head?.color ?? '#5e5ce6';
   const isBlock = members.length > 1;
-  const totalMs = members.reduce((s, m) => s + liveMs(m, now, members.length), 0);
-  const totalLeft = members.reduce((s, m) => s + (m.left_min ?? 0), 0);
-  const isOver = totalLeft > 0 ? (totalMs / 60000) >= totalLeft : false;
-  const progress = totalLeft > 0 ? Math.min(100, (totalMs / (totalLeft * 60000)) * 100) : 0;
+  const sessionMs = members.reduce((s, m) => s + liveMs(m, now, members.length), 0);
+  const totalDisplayMs = members.reduce((s, m) => s + displayMs(m, now, members.length), 0);
+  const totalLeft = members.reduce((s, m) => s + Math.max(0, m.left_min ?? 0), 0);
+  const isOver = totalLeft > 0 ? (sessionMs / 60000) >= totalLeft : false;
+  const progress = totalLeft > 0 ? Math.min(100, (sessionMs / (totalLeft * 60000)) * 100) : 0;
 
   useEffect(() => {
     const handleMouseMove = async (e: MouseEvent) => {
@@ -92,7 +93,7 @@ export default function CompactCard({
                 <div className="compact-project">{members.length} tareas en bloque</div>
               )}
               <div className="compact-clock-row">
-                <span className={`compact-task-clock${isOver ? ' over' : ''}`}>{fmt(totalMs)}</span>
+                <span className={`compact-task-clock${isOver ? ' over' : ''}`}>{fmt(totalDisplayMs)}</span>
                 {totalLeft ? <span className="compact-left">/ {totalLeft} min</span> : null}
               </div>
               {totalLeft ? (
@@ -144,14 +145,14 @@ function CompactMemberRow({
   onToggleNotes: (id: string) => void;
   onSetNotes: (id: string, notes: string) => void;
 }) {
-  const elapsed = liveMs(task, now, blockSize);
+  const totalElapsed = displayMs(task, now, blockSize);
 
   return (
     <div className="compact-member-row">
       <div className="compact-member-top">
         {showName && <span className="compact-member-dot" style={{ background: task.color }} />}
         {showName && <span className="compact-member-name">{task.name}</span>}
-        <span className="compact-member-time">{fmt(elapsed)}</span>
+        <span className="compact-member-time">{fmt(totalElapsed)}</span>
         <div className="compact-member-actions">
           <button
             className="compact-icon-btn"

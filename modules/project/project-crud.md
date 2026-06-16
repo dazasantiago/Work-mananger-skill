@@ -5,108 +5,94 @@
 El usuario pide agregar/actualizar un proyecto, cambiar su estado, capturar
 una idea, o eliminar un proyecto, fuera del flujo de sesión.
 
-## 1. Fetch de datos
+## Data sources (IDs conocidos)
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\fetch-overview.py"
-```
+| Colección | URL |
+|-----------|-----|
+| Projects | `collection://7cb2470f-41e2-44d2-927e-7603c8ed80e2` |
+| Tasks | `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be` |
 
-Usar `projects` para resolver nombres, y `tasks` (campo `Project`, relation)
-para detectar tareas asociadas antes de eliminar.
+## Schema de Projects (formato SQLite para MCP)
 
-## 2. Resolver referencias por nombre
+| Campo Notion | SQLite key | Tipo |
+|---|---|---|
+| Project (título) | `Project` | TEXT |
+| Type | `Type` | TEXT — "Software Development" \| "Content Creation" |
+| Status | `Status` | TEXT — "Active" \| "Backlog" \| "Idea" |
+| Context | `Context` | TEXT |
 
-Igual que en `task-crud.md`: substring case-insensitive contra `Project`.
-Disambiguar con tabla si hay ambigüedad.
+## 1. Resolver referencias por nombre
 
-## 3. Crear proyecto / capturar idea
+Cuando el usuario menciona un proyecto por nombre:
+- `notion-search` · query: nombre del proyecto · data_source_url: `collection://7cb2470f-41e2-44d2-927e-7603c8ed80e2` · content_search_mode: `workspace_search` · page_size: 10 · max_highlight_length: 0
 
-El usuario dice "agrega un proyecto...", "anota la idea de...", "quiero
-empezar a trabajar en...".
+Si hay varias coincidencias o ninguna, presentar opciones en tabla corta y preguntar.
+
+## 2. Crear proyecto / capturar idea
+
+El usuario dice "agrega un proyecto...", "anota la idea de...", "quiero empezar a trabajar en...".
 
 Datos:
-- `project` (título, sin emoji) — requerido
-- `emoji` — requerido. Elegirlo según el tema del proyecto (ver "Regla global:
-  Emoji como ícono de página al crear" en `SKILL.md`)
-- `status` — si dice "es una idea" o no especifica, omitir (default "Idea").
-  "ya lo voy a empezar" → `status: "Active"`. "lo dejo para después" → `status: "Backlog"`
-- `type` — preguntar solo si no es obvio del contexto ("Software Development"
-  o "Content Creation"); si no se puede inferir, omitir
-- `context` — capturar cualquier descripción/nota que el usuario haya dado
+- `Project` (título, sin emoji) — requerido
+- emoji (ícono de página) — requerido; elegir según el tema (ver "Regla global: Emoji como ícono de página al crear" en `SKILL.md`)
+- `Status` — si dice "es una idea" o no especifica → omitir (default "Idea"). "ya lo voy a empezar" → "Active". "lo dejo para después" → "Backlog"
+- `Type` — preguntar solo si no es obvio del contexto; si no se puede inferir, omitir
+- `Context` — capturar cualquier descripción o nota que el usuario haya dado
 
 Acción de bajo riesgo — ejecutar directo sin confirmación previa:
+- `notion-create-pages`
+  - parent: `{"type": "data_source_id", "data_source_id": "7cb2470f-41e2-44d2-927e-7603c8ed80e2"}`
+  - pages[0].icon: emoji elegido
+  - pages[0].properties: campos con formato de la tabla de schema (arriba)
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\project-write.py" "<json>"
-```
+Confirmar: `Proyecto "<Project>" creado (status: <Status>) ✓`
 
-```json
-{
-    "project": "Nombre del proyecto",
-    "emoji": "🚀",
-    "status": "Idea",
-    "type": "Software Development",
-    "context": "Descripción capturada"
-}
-```
+## 3. Editar / cambiar estado
 
-Confirmar: `Proyecto "<project>" creado (status: <status>) ✓`
+Resolver el proyecto por nombre (paso 1). Mapear lo que pide el usuario:
 
-## 4. Editar / cambiar estado
-
-Resolver el proyecto por nombre (paso 2). Mapear lo que pide el usuario:
-
-| Pide el usuario | Campo(s) |
-|------------------|----------|
-| "pasa X a Active/Backlog" | `status` |
-| "cambia el tipo a..." | `type` |
-| "actualiza la descripción/contexto" | `context` |
-| "renombra el proyecto a..." | `project` |
+| Pide el usuario | Campo |
+|-----------------|-------|
+| "pasa X a Active/Backlog" | `Status` |
+| "cambia el tipo a..." | `Type` |
+| "actualiza la descripción/contexto" | `Context` |
+| "renombra el proyecto a..." | `Project` |
 
 Confirmar en una línea antes de ejecutar:
 ```
-Actualizar proyecto "<project>": <campo> → <nuevo valor>
+Actualizar proyecto "<Project>": <campo> → <nuevo valor>
 ```
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\project-write.py" "<json>"
-```
+- `notion-update-page` · page_id: ID del proyecto · command: `update_properties` · properties: solo los campos que cambian
 
-```json
-{
-    "id": "notion-page-id",
-    "<campo>": "<nuevo valor>"
-}
-```
+Confirmar: `Proyecto "<Project>" actualizado ✓`
 
-Enviar solo los campos que cambian. Confirmar: `Proyecto "<project>" actualizado ✓`
+## 4. Eliminar proyecto
 
-## 5. Eliminar proyecto
+El usuario dice "elimina/borra el proyecto X". Resolver por nombre (paso 1).
 
-El usuario dice "elimina/borra el proyecto X". Resolver por nombre (paso 2).
-
-**Cross-referenciar tareas asociadas**: filtrar `tasks` del fetch cuyo
-`Project` (relation array) contenga el `id` del proyecto.
+**Buscar tareas asociadas** (para advertir al usuario):
+- `notion-search` · query: nombre del proyecto · data_source_url: `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be` · content_search_mode: `workspace_search` · page_size: 25 · max_highlight_length: 0
 
 **Confirmar siempre antes de eliminar:**
 
-Sin tareas asociadas:
+Sin tareas asociadas encontradas:
 ```
-¿Eliminar el proyecto "<project>"?
+¿Eliminar el proyecto "<Project>"?
 Esta acción no se puede deshacer fácilmente.
 ```
 
-Con N tareas asociadas:
+Con tareas encontradas:
 ```
-¿Eliminar el proyecto "<project>"?
-Tiene N tarea(s) asociada(s):
+¿Eliminar el proyecto "<Project>"?
+Las siguientes tareas están asociadas a este proyecto:
   - <Task 1>
   - <Task 2>
 Estas tareas NO se eliminarán, pero quedarán sin proyecto asignado.
 Esta acción no se puede deshacer fácilmente.
 ```
 
-Esperar confirmación, luego:
+Esperar confirmación. El MCP de Notion no soporta enviar páginas a la papelera — usar el script:
 
 ```bash
 python "C:\Users\dazas\.claude\skills\actions\scripts\project\project-delete.py" "<json>"
@@ -116,4 +102,4 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\project\project-delete.py"
 {"id": "notion-page-id"}
 ```
 
-Confirmar: `Proyecto "<project>" eliminado ✓`
+Confirmar: `Proyecto "<Project>" eliminado ✓`

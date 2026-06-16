@@ -2,9 +2,16 @@
 
 Sistema de gestión de trabajo integrado con Notion. Dos módulos principales: **session management** y **project management**.
 
-## Regla global: Notion siempre via script
+## Regla global: cómo interactuar con Notion
 
-Toda interacción con Notion se hace ejecutando un script Python de la carpeta `scripts/`. Claude nunca llama al Notion MCP directamente — lee el output del script y actúa sobre él.
+Cada módulo usa el mecanismo más adecuado para su carga:
+
+| Módulo | Mecanismo | Motivo |
+|--------|-----------|--------|
+| **Session management** | Scripts Python (`scripts/session/`) | Necesita fetching paralelo de tasks + proyectos + última sesión |
+| **Project management** | Notion MCP (`mcp__claude_ai_Notion__*`) | Operaciones simples de una sola entidad; MCP es suficiente |
+
+Los scripts de **delete** de project management (`task-delete.py`, `project-delete.py`) siguen usando script porque el MCP de Notion no soporta enviar páginas a la papelera.
 
 ```bash
 python "C:\Users\dazas\.claude\skills\actions\scripts\<script>.py"
@@ -12,42 +19,33 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\<script>.py"
 
 El token de Notion está en `.env` dentro de la skill. Los scripts lo cargan automáticamente.
 
-### Encoding en Windows (emoji, tildes)
+### Encoding en Windows (emoji, tildes) — solo aplica a scripts de session
 
-La consola de este entorno es `cp1252`, no UTF-8. Esto afecta dos casos:
+La consola de este entorno es `cp1252`, no UTF-8. Solo es relevante para los scripts de session:
 
-**1. Scripts que solo imprimen** (`fetch-overview.py`,
-`session-fetch-brief.py`, etc.): si el output tiene emoji o tildes y el script
-usa `ensure_ascii=False`, `print()` lanza `UnicodeEncodeError`. Anteponer
-`PYTHONIOENCODING=utf-8`:
+**1. Scripts que solo imprimen** (`session-fetch-brief.py`, etc.): anteponer `PYTHONIOENCODING=utf-8`:
 
 ```bash
-set PYTHONIOENCODING=utf-8 && python "...\fetch-overview.py"
+set PYTHONIOENCODING=utf-8 && python "...\session-fetch-brief.py"
 ```
 
-La consola puede mostrar `�` donde va una tilde/emoji — es solo cosmético, los
-datos en Notion quedan bien.
+La consola puede mostrar `�` donde va una tilde/emoji — es solo cosmético, los datos en Notion quedan bien.
 
-**2. Scripts que reciben JSON con emoji como argumento** (`task-write.py`,
-`project-write.py`, `session-create.py`, etc.): pasar el emoji directo como
-string en bash/PowerShell rompe el JSON (mal escapado, `\x..` no es un escape
-válido). En su lugar:
+**2. Scripts que reciben JSON con emoji** (`session-create.py`, etc.): pasar el emoji directo como string en bash/PowerShell rompe el JSON. En su lugar:
 
-1. Escribir el JSON a un archivo temporal UTF-8 (Write tool, ej. `_tmp_task.json`
-   junto al script).
-2. Ejecutar vía wrapper que fuerza lectura UTF-8 y agrega `scripts/` al path:
+1. Escribir el JSON a un archivo temporal UTF-8 (Write tool, ej. `_tmp_session.json` junto al script).
+2. Ejecutar vía wrapper que fuerza lectura UTF-8:
 
    ```bash
    python -c "
    import sys, runpy
    sys.path.insert(0, r'C:\Users\dazas\.claude\skills\actions\scripts')
-   data = open('_tmp_task.json', encoding='utf-8').read().strip()
-   sys.argv = ['task-write.py', data]
-   runpy.run_path(r'C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py', run_name='__main__')
+   data = open('_tmp_session.json', encoding='utf-8').read().strip()
+   sys.argv = ['session-create.py', data]
+   runpy.run_path(r'C:\Users\dazas\.claude\skills\actions\scripts\session\session-create.py', run_name='__main__')
    "
    ```
-3. Borrar el archivo temporal al terminar con `rm` (Bash tool corre en shell
-   POSIX — `del` es de cmd y falla con "command not found").
+3. Borrar el archivo temporal al terminar con `rm` (Bash tool corre en shell POSIX — `del` es de cmd y falla).
 
 ## Regla global: Emoji como ícono de página al crear
 
@@ -56,18 +54,16 @@ Al crear una **task**, **project** o **session** en Notion, el emoji va como
 reciben los scripts), nunca como texto dentro del título (`task` / `project` /
 `title`).
 
-- **Task / Project**: el JSON enviado a `task-write.py` / `project-write.py`
-  incluye un campo `emoji` separado del título. Claude elige el emoji según
-  el tema de la entrada (ej. 🐛 bug, 🎨 diseño, 📝 contenido/escritura, 🚀
-  lanzamiento, 💡 idea, 🔧 configuración/infra, 📚 estudio, 💰 finanzas). Si
-  ninguno calza, usar 📌.
+- **Task / Project**: el emoji va en el parámetro `icon` de `notion-create-pages`
+  (MCP), separado del título. Claude elige el emoji según el tema de la entrada
+  (ej. 🐛 bug, 🎨 diseño, 📝 contenido/escritura, 🚀 lanzamiento, 💡 idea,
+  🔧 configuración/infra, 📚 estudio, 💰 finanzas). Si ninguno calza, usar 📌.
 - **Session**: `session-create.py` setea siempre ⏱️ como ícono — no requiere
   campo `emoji`.
 
 Ejemplos:
-- Task: `{"task": "Arreglar bug de login", "emoji": "🐛"}` → título "Arreglar
-  bug de login" con ícono 🐛.
-- Session: `{"title": "Session — 2026-06-08 — Mixed"}` → ícono ⏱️ automático.
+- Task (MCP): `notion-create-pages` con `icon: "🐛"` y `properties.Task: "Arreglar bug de login"`.
+- Session (script): `{"title": "Session — 2026-06-08 — Mixed"}` → ícono ⏱️ automático.
 
 ## Infraestructura compartida
 

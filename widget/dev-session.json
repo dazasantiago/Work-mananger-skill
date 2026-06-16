@@ -1,20 +1,27 @@
 {
   "session_id": "dev-session-id-000",
-  "session_title": "Session — 2026-06-09 — Mixed (DEV)",
-  "planned_min": 90,
+  "session_title": "Session — 2026-06-16 — Mixed (DEV)",
+  "planned_min": 120,
   "projects": ["Ritto", "Universidad", "Personal", "OpenClaw"],
   "tasks": [
-    { "id": "abc123", "name": "Revisar arquitectura del widget", "project": "Ritto", "left_min": 30, "initial_actual_min": 0, "prev_status": "En progreso" },
-    { "id": "def456", "name": "Escribir tests de integración", "project": "Ritto", "left_min": 25, "initial_actual_min": 10, "prev_status": "En progreso" },
-    { "id": "ghi789", "name": "Preparar presentación", "project": "Universidad", "left_min": 20, "initial_actual_min": 0, "prev_status": "Pendiente" },
-    { "id": "jkl012", "name": "Revisar PRs pendientes", "project": "Personal", "prev_status": "Pendiente" }
+    { "id": "t1", "name": "Revisar arquitectura del widget",   "project": "Ritto",      "left_min": 30,  "initial_actual_min": 0,  "prev_status": "Pendiente"    },
+    { "id": "t2", "name": "Escribir tests de integración",    "project": "Ritto",      "left_min": 5,   "initial_actual_min": 40, "prev_status": "En progreso"  },
+    { "id": "t3", "name": "Preparar demo para el equipo",     "project": "Universidad","left_min": 0,   "initial_actual_min": 20, "prev_status": "Pendiente"    },
+    { "id": "t4", "name": "Migrar base de datos",             "project": "OpenClaw",   "left_min": -15, "initial_actual_min": 45, "prev_status": "En progreso"  },
+    { "id": "t5", "name": "Arreglar bug de autenticación",    "project": "Ritto",      "left_min": -60, "initial_actual_min": 90, "prev_status": "En progreso"  },
+    { "id": "t6", "name": "Revisar PRs pendientes",           "project": "Personal",                    "initial_actual_min": 0,  "prev_status": "Pendiente"    }
   ],
   "available_tasks": [
-    { "id": "abc123", "name": "Revisar arquitectura del widget", "project": "Ritto", "status": "En progreso", "left_min": 30, "initial_actual_min": 0 },
-    { "id": "mno345", "name": "Refactor del cliente de Notion", "project": "Ritto", "status": "Pendiente", "left_min": 45, "initial_actual_min": 0 },
-    { "id": "pqr678", "name": "Setear CI para el widget", "project": "OpenClaw", "status": "En progreso", "left_min": 15, "initial_actual_min": 5 },
-    { "id": "stu901", "name": "Leer paper de sistemas distribuidos", "project": "Universidad", "status": "Pendiente", "left_min": 90, "initial_actual_min": 0 },
-    { "id": "vwx234", "name": "Responder mails pendientes", "project": "Personal", "status": "Pendiente", "left_min": 10, "initial_actual_min": 0 },
-    { "id": "yz5678", "name": "Idea suelta sin estimar", "status": "Pendiente" }
+    { "id": "t1", "name": "Revisar arquitectura del widget",   "project": "Ritto",      "status": "Pendiente",    "left_min": 30,  "initial_actual_min": 0  },
+    { "id": "t2", "name": "Escribir tests de integración",    "project": "Ritto",      "status": "En progreso",  "left_min": 5,   "initial_actual_min": 40 },
+    { "id": "t3", "name": "Preparar demo para el equipo",     "project": "Universidad","status": "Pendiente",    "left_min": 0,   "initial_actual_min": 20 },
+    { "id": "t4", "name": "Migrar base de datos",             "project": "OpenClaw",   "status": "En progreso",  "left_min": -15, "initial_actual_min": 45 },
+    { "id": "t5", "name": "Arreglar bug de autenticación",    "project": "Ritto",      "status": "En progreso",  "left_min": -60, "initial_actual_min": 90 },
+    { "id": "t6", "name": "Revisar PRs pendientes",           "project": "Personal",   "status": "Pendiente",                     "initial_actual_min": 0  },
+    { "id": "a1", "name": "Refactor del cliente de Notion",   "project": "Ritto",      "status": "Pendiente",    "left_min": 45,  "initial_actual_min": 0  },
+    { "id": "a2", "name": "Setear CI para el widget",         "project": "OpenClaw",   "status": "En progreso",  "left_min": 15,  "initial_actual_min": 5  },
+    { "id": "a3", "name": "Leer paper de sistemas distribuidos","project": "Universidad","status": "Pendiente",   "left_min": 90,  "initial_actual_min": 0  },
+    { "id": "a4", "name": "Responder mails pendientes",       "project": "Personal",   "status": "Pendiente",    "left_min": 10,  "initial_actual_min": 0  },
+    { "id": "a5", "name": "Idea suelta sin estimar",                                   "status": "Pendiente",                     "initial_actual_min": 0  }
   ]
 }

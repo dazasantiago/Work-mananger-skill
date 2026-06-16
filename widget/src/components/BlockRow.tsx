@@ -1,6 +1,6 @@
 import { motion, useDragControls } from 'framer-motion';
 import type { Task } from '../types';
-import { fmt, liveMs } from '../useNow';
+import { fmt, liveMs, displayMs } from '../useNow';
 import { hexToRgba } from '../colors';
 
 interface Props {
@@ -32,9 +32,10 @@ export default function BlockRow({
 }: Props) {
   const dragControls = useDragControls();
   const head = members[0];
-  const totalMs = members.reduce((s, m) => s + liveMs(m, now, members.length), 0);
-  const totalLeft = members.reduce((s, m) => s + (m.left_min ?? 0), 0);
-  const isOver = totalLeft > 0 ? totalMs / 60000 >= totalLeft : false;
+  const sessionMs = members.reduce((s, m) => s + liveMs(m, now, members.length), 0);
+  const totalDisplayMs = members.reduce((s, m) => s + displayMs(m, now, members.length), 0);
+  const totalLeft = members.reduce((s, m) => s + Math.max(0, m.left_min ?? 0), 0);
+  const isOver = totalLeft > 0 ? sessionMs / 60000 >= totalLeft : false;
 
   const rowStyle = {
     '--task-color': head.color,
@@ -86,9 +87,9 @@ export default function BlockRow({
           </span>
         </div>
 
-        {(isCurrent || totalMs > 0) && (
+        {(isCurrent || totalDisplayMs > 0) && (
           <div className="task-clock-wrap">
-            <span className={`task-clock${isOver ? ' over' : ''}`}>{fmt(totalMs)}</span>
+            <span className={`task-clock${isOver ? ' over' : ''}`}>{fmt(totalDisplayMs)}</span>
           </div>
         )}
       </div>
@@ -125,8 +126,9 @@ function BlockSubRow({
   onUnmerge: () => void;
   onRemove: () => void;
 }) {
-  const elapsed = liveMs(task, now, blockSize);
-  const isOver = task.left_min ? (elapsed / 60000) >= task.left_min : false;
+  const sessionElapsed = liveMs(task, now, blockSize);
+  const totalElapsed = displayMs(task, now, blockSize);
+  const isOver = task.left_min ? (sessionElapsed / 60000) >= task.left_min : false;
 
   return (
     <motion.div
@@ -143,7 +145,7 @@ function BlockSubRow({
       <span className="block-subrow-dot" style={{ background: task.color }} />
       <span className="block-subrow-name">{task.name}</span>
       {task.left_min ? <span className="block-subrow-meta">~{task.left_min} min</span> : null}
-      <span className={`block-subrow-clock${isOver ? ' over' : ''}`}>{fmt(elapsed)}</span>
+      <span className={`block-subrow-clock${isOver ? ' over' : ''}`}>{fmt(totalElapsed)}</span>
       <button
         className="block-subrow-done"
         onPointerDown={e => e.stopPropagation()}

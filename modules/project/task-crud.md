@@ -5,122 +5,113 @@
 El usuario pide agregar, editar, marcar como hecha, o eliminar una tarea,
 fuera del flujo de sesión.
 
-## 1. Fetch de datos
+## Data sources (IDs conocidos)
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\fetch-overview.py"
-```
+| Colección | URL |
+|-----------|-----|
+| Tasks | `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be` |
+| Projects | `collection://7cb2470f-41e2-44d2-927e-7603c8ed80e2` |
 
-Usar `tasks` y `projects` para resolver nombres mencionados a ids.
+## Schema de Tasks (formato SQLite para MCP)
 
-## 2. Resolver referencias por nombre
+| Campo Notion | SQLite key | Tipo |
+|---|---|---|
+| Task (título) | `Task` | TEXT |
+| Status | `Status` | TEXT — "Pendiente" \| "En progreso" \| "Listo" |
+| Deadline | `date:Deadline:start` | TEXT — "YYYY-MM-DD" |
+| Left (min) | `Left (min)` | REAL |
+| Actual time (min) | `Actual time (min)` | REAL |
+| Notes | `Notes` | TEXT |
+| Project (relation) | verificar en schema | depende del schema |
+| Parent Task (relation) | verificar en schema | depende del schema |
 
-Cuando el usuario menciona una tarea o proyecto por nombre:
-- Buscar coincidencia (sub)string case-insensitive contra `Task`/`Project`
-- Si hay una sola coincidencia clara, usar su `id`
-- Si hay varias o ninguna, presentar las opciones en una tabla corta y preguntar cuál es
+Para relation fields (`Project`, `Parent Task`), hacer `notion-fetch` al data source para ver el formato exacto si es necesario.
 
-## 3. Crear tarea
+## 1. Resolver referencias por nombre
+
+Cuando el usuario menciona una tarea por nombre:
+- `notion-search` · query: nombre de la tarea · data_source_url: `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be` · content_search_mode: `workspace_search` · page_size: 10 · max_highlight_length: 0
+
+Cuando necesita resolver un proyecto por nombre:
+- `notion-search` · query: nombre del proyecto · data_source_url: `collection://7cb2470f-41e2-44d2-927e-7603c8ed80e2` · content_search_mode: `workspace_search` · page_size: 10 · max_highlight_length: 0
+
+Si hay varias coincidencias o ninguna, presentar opciones en tabla corta y preguntar.
+
+## 2. Crear tarea
 
 Datos a confirmar con el usuario:
-- `task` (título, sin emoji) — requerido
-- `emoji` — requerido. Elegirlo según el tema de la tarea (ver "Regla global:
-  Emoji como ícono de página al crear" en `SKILL.md`)
-- `project_id` — preguntar siempre "¿A qué proyecto pertenece?" salvo que el
-  usuario ya lo haya dicho. Si dice que no aplica a ningún proyecto, omitir
-- `deadline` — opcional, preguntar solo si parece relevante
-- `left_min` — opcional, preguntar "¿Cuánto tiempo estimas?" si quiere planearlo
-- `status` — si el usuario no dice nada, omitir (el script defaultea a "Pendiente"). Si dice "ya empecé con esto" → `status: "En progreso"`
+- `Task` (título, sin emoji) — requerido
+- emoji (ícono de página) — requerido; elegir según el tema (ver "Regla global: Emoji como ícono de página al crear" en `SKILL.md`)
+- `Project` — preguntar "¿A qué proyecto pertenece?" salvo que ya se indicó; si no aplica, omitir
+- `Deadline` — opcional, preguntar solo si parece relevante
+- `Left (min)` — opcional, preguntar "¿Cuánto tiempo estimas?" si quiere planearlo
+- `Status` — si no dice nada, omitir (default "Pendiente"); si dice "ya empecé" → "En progreso"
 
 Confirmar antes de crear:
 ```
-Crear tarea "<task>" en proyecto "<Proyecto>"
+Crear tarea "<Task>" en proyecto "<Proyecto>"
   Deadline: <fecha o "sin fecha">
-  Estimado: <left_min> min
+  Estimado: <Left (min)> min
 ```
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py" "<json>"
-```
+Si se incluye `Project` o `Parent Task`, obtener el schema primero para saber el formato exacto de relations:
+- `notion-fetch` · id: `collection://72ab8e2f-35a1-4b46-97eb-84e8d6d792be`
 
-```json
-{
-    "task": "Nombre de la tarea",
-    "emoji": "🐛",
-    "project_id": "notion-page-id",
-    "deadline": "YYYY-MM-DD",
-    "left_min": 30
-}
-```
+Crear:
+- `notion-create-pages`
+  - parent: `{"type": "data_source_id", "data_source_id": "72ab8e2f-35a1-4b46-97eb-84e8d6d792be"}`
+  - pages[0].icon: emoji elegido
+  - pages[0].properties: campos con formato de la tabla de schema (arriba)
 
-Confirmar: `Tarea "<task>" creada ✓`
+Confirmar: `Tarea "<Task>" creada ✓`
 
-## 4. Editar tarea
+## 3. Editar tarea
 
-Resolver la tarea por nombre (paso 2). Mapear lo que pide el usuario a campos:
+Resolver la tarea por nombre (paso 1). Mapear lo que pide el usuario:
 
-| Pide el usuario | Campo(s) |
-|------------------|----------|
-| "cambia el deadline a..." | `deadline` |
-| "esto va a tomar más/menos tiempo" | `left_min` |
-| "muévela al proyecto X" | `project_id` |
-| "es subtarea de X" | `parent_task_id` |
-| "agrega nota: ..." | `notes` |
-| "ponla en progreso" | `status: "En progreso"` |
+| Pide el usuario | Campo |
+|-----------------|-------|
+| "cambia el deadline a..." | `date:Deadline:start` |
+| "esto va a tomar más/menos tiempo" | `Left (min)` |
+| "muévela al proyecto X" | `Project` (relation) — resolver proyecto vía search |
+| "es subtarea de X" | `Parent Task` (relation) — resolver tarea vía search |
+| "agrega nota: ..." | `Notes` |
+| "ponla en progreso" | `Status` → `"En progreso"` |
 
 Confirmar en una línea antes de ejecutar:
 ```
-Actualizar "<task>": <campo> → <nuevo valor>
+Actualizar "<Task>": <campo> → <nuevo valor>
 ```
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py" "<json>"
-```
+- `notion-update-page` · page_id: ID de la tarea · command: `update_properties` · properties: solo los campos que cambian
 
-```json
-{
-    "id": "notion-page-id",
-    "<campo>": "<nuevo valor>"
-}
-```
+Confirmar: `"<Task>" actualizada ✓`
 
-Enviar solo los campos que cambian. Confirmar: `"<task>" actualizada ✓`
+## 4. Completar tarea
 
-## 5. Completar tarea
+El usuario dice "ya terminé X", "marca X como hecha". Resolver por nombre (paso 1).
 
-El usuario dice "ya terminé X", "marca X como hecha". Resolver por nombre (paso 2).
+Acción no destructiva — ejecutar directo sin confirmación:
+- `notion-update-page` · page_id: ID · command: `update_properties` · properties: `{"Status": "Listo", "Left (min)": 0}`
 
-```bash
-python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-write.py" "<json>"
-```
+Confirmar: `"<Task>" marcada como Listo ✓`
 
-```json
-{
-    "id": "notion-page-id",
-    "status": "Listo"
-}
-```
+## 5. Eliminar tarea
 
-`Left (min)` se pone en 0 automáticamente. Acción no destructiva — ejecutar
-directo, sin confirmación previa. Confirmar resultado: `"<task>" marcada como Listo ✓`
-
-## 6. Eliminar tarea
-
-El usuario dice "elimina/borra la tarea X". Resolver por nombre (paso 2).
+El usuario dice "elimina/borra la tarea X". Resolver por nombre (paso 1).
 
 **Confirmar siempre antes de eliminar:**
-
 ```
-¿Eliminar la tarea "<task>"?
+¿Eliminar la tarea "<Task>"?
 Esta acción no se puede deshacer fácilmente.
 ```
 
-Si la tarea tiene `Subtasks` no vacío en el fetch, agregar:
+Si el resultado de la búsqueda indicó subtareas, agregar:
 ```
 Esta tarea tiene N subtarea(s) asociada(s). No se eliminarán, pero quedarán sin tarea padre.
 ```
 
-Esperar confirmación, luego:
+Esperar confirmación. El MCP de Notion no soporta enviar páginas a la papelera — usar el script:
 
 ```bash
 python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-delete.py" "<json>"
@@ -130,4 +121,4 @@ python "C:\Users\dazas\.claude\skills\actions\scripts\project\task-delete.py" "<
 {"id": "notion-page-id"}
 ```
 
-Confirmar: `Tarea "<task>" eliminada ✓`
+Confirmar: `Tarea "<Task>" eliminada ✓`

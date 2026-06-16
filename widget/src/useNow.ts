@@ -25,3 +25,9 @@ export function liveMs(task: Pick<Task, 'accumulated_ms' | 'running_since'>, now
   if (task.running_since !== null) ms += (now - task.running_since) / rate;
   return ms;
 }
+
+// Total time ever spent on this task: session time + previous sessions (initial_actual_min).
+// Use only for display — accumulated_ms stays session-only so the finish payload doesn't double-count.
+export function displayMs(task: Pick<Task, 'accumulated_ms' | 'running_since' | 'initial_actual_min'>, now: number, rate = 1): number {
+  return liveMs(task, now, rate) + task.initial_actual_min * 60000;
+}

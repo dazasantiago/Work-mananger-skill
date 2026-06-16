@@ -95,6 +95,8 @@ El JSON debe tener esta forma:
 }
 ```
 
+`planned_min` es siempre la suma de `left_min` de las tasks aprobadas (sumando solo los valores positivos — `left_min` negativos cuentan como 0). Nunca usar el tiempo que dijo el usuario directamente.
+
 `title` sin emoji — el script setea automáticamente el ícono de página ⏱️
 (ver "Regla global: Emoji como ícono de página al crear" en `SKILL.md`).
 
@@ -111,7 +113,7 @@ Write puede sobreescribirlo directamente):
 {
     "session_id": "<id>",
     "session_title": "<title>",
-    "planned_min": 90,
+    "planned_min": 90,  // suma de left_min positivos de las tasks aprobadas
     "projects": ["Proyecto A", "Proyecto B", "..."],
     "tasks": [
         {
