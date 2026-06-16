@@ -31,6 +31,10 @@ export async function closeWindow(): Promise<void> {
   await getCurrentWindow().close();
 }
 
+export async function minimizeWindow(): Promise<void> {
+  await getCurrentWindow().minimize();
+}
+
 export async function getWindowOuterPosition(): Promise<{ x: number; y: number }> {
   const pos = await getCurrentWindow().outerPosition();
   return { x: pos.x, y: pos.y };

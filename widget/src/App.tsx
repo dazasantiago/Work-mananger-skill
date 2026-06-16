@@ -8,6 +8,7 @@ import {
   setWindowSize,
   showWindow,
   closeWindow,
+  minimizeWindow,
   checkDockPosition,
   listenToMoved,
 } from './window';
@@ -853,6 +854,15 @@ export default function App() {
                       <path d="M2.5 1.5V10.5L10 6L2.5 1.5Z" fill="currentColor" />
                     </svg>
                   </div>
+                  <button
+                    className="pause-minimize-btn"
+                    title="Minimizar"
+                    onClick={(e) => { e.stopPropagation(); minimizeWindow(); }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="2" y="6.5" width="10" height="1.5" rx="0.75" fill="currentColor" />
+                    </svg>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
