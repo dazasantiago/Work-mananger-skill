@@ -9,6 +9,7 @@ import {
   showWindow,
   closeWindow,
   minimizeWindow,
+  isWindowMinimized,
   checkDockPosition,
   listenToMoved,
 } from './window';
@@ -285,8 +286,6 @@ export default function App() {
   const tasksRef = useRef<Task[]>([]);
   const removedTasksRef = useRef<Task[]>([]);
   const taskListRef = useRef<HTMLDivElement>(null);
-  const bottomBarRef = useRef<HTMLDivElement>(null);
-  const baseBottomBarHeightRef = useRef<number | null>(null);
   const dropRef = useRef<Drop | null>(null);
   const [drop, setDrop] = useState<Drop | null>(null);
   const now = useNow();
@@ -341,7 +340,10 @@ export default function App() {
       if (timer) clearTimeout(timer);
       // Only act once the window has stopped moving (i.e. the drag ended),
       // so passing through the edge mid-drag doesn't trigger a dock.
-      timer = setTimeout(() => {
+      // Also guard against minimize: Windows moves the window off-screen
+      // (-32000, -32000) when minimizing, which would falsely trigger compact.
+      timer = setTimeout(async () => {
+        if (await isWindowMinimized()) return;
         checkDockPosition(380, () => setIsCompact(true));
       }, 200);
     }).then(u => { unlisten = u; });
@@ -350,26 +352,6 @@ export default function App() {
       if (timer) clearTimeout(timer);
     };
   }, []);
-
-  // Grow/shrink the window so the add-task picker/form always fits — the
-  // first observed height becomes the baseline (normal, closed state), and
-  // any extra height beyond that (the picker's filters/list/actions) is
-  // added on top of `normalHeight`.
-  useEffect(() => {
-    const el = bottomBarRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver(() => {
-      if (baseBottomBarHeightRef.current === null) {
-        baseBottomBarHeightRef.current = el.offsetHeight;
-        return;
-      }
-      const extra = Math.max(0, el.offsetHeight - baseBottomBarHeightRef.current);
-      const h = Math.max(360, Math.min(window.screen.height - 90, normalHeight + extra));
-      setWindowSize(380, h);
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [normalHeight]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -691,7 +673,7 @@ export default function App() {
                     </AnimatePresence>
                   </div>
 
-                  <div className="bottom-bar" ref={bottomBarRef}>
+                  <div className="bottom-bar">
                     <div className="add-row">
                       <AnimatePresence mode="wait">
                         {addView === 'form' ? (

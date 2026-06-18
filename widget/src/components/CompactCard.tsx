@@ -75,27 +75,42 @@ export default function CompactCard({
 
   return (
     <div className="compact-view" onMouseDown={handleMouseDown}>
-      <div className="compact-top">
-        <div className="compact-timer-wrap">
-          <span className="compact-timer">{elapsed}</span>
-          <span className="compact-planned"> / {plannedMin} min</span>
-        </div>
-      </div>
-
       <div className="compact-card" style={{ '--task-color': cardColor } as React.CSSProperties}>
         {head ? (
           <>
             <div className="compact-card-header">
-              {!isBlock && head.project && <div className="compact-project">{head.project}</div>}
-              {!isBlock ? (
-                <div className="compact-task-name">{head.name}</div>
-              ) : (
+              {isBlock ? (
                 <div className="compact-project">{members.length} tareas en bloque</div>
+              ) : (
+                head.project && <div className="compact-project">{head.project}</div>
               )}
+              {!isBlock && <div className="compact-task-name">{head.name}</div>}
+
               <div className="compact-clock-row">
                 <span className={`compact-task-clock${isOver ? ' over' : ''}`}>{fmt(totalDisplayMs)}</span>
-                {totalLeft ? <span className="compact-left">/ {totalLeft} min</span> : null}
+                {totalLeft ? <span className="compact-left">/ {totalLeft}m</span> : null}
+                {!isBlock && head && (
+                  <div className="compact-head-actions">
+                    <button
+                      className="compact-icon-btn"
+                      title={head.notesOpen ? 'Ocultar notas' : 'Notas'}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => onToggleNotes(head.id)}
+                    >
+                      📝
+                    </button>
+                    <button
+                      className="compact-icon-btn compact-done-btn"
+                      title="Marcar como hecha"
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={() => onDone(head.id)}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                )}
               </div>
+
               {totalLeft ? (
                 <div className="compact-progress">
                   <div className={`compact-progress-fill${isOver ? ' over' : ''}`} style={{ width: `${progress}%` }} />
@@ -103,20 +118,36 @@ export default function CompactCard({
               ) : null}
             </div>
 
-            <div className="compact-members">
-              {members.map(m => (
-                <CompactMemberRow
-                  key={m.id}
-                  task={m}
-                  now={now}
-                  blockSize={members.length}
-                  showName={isBlock}
-                  onDone={onDone}
-                  onToggleNotes={onToggleNotes}
-                  onSetNotes={onSetNotes}
-                />
-              ))}
-            </div>
+            {!isBlock && head.notesOpen && (
+              <textarea
+                className="compact-notes-area"
+                placeholder="Notas para esta tarea…"
+                value={head.notes}
+                onChange={e => onSetNotes(head.id, e.target.value)}
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+                rows={2}
+              />
+            )}
+
+            {isBlock && (
+              <div className="compact-members">
+                {members.map(m => (
+                  <CompactMemberRow
+                    key={m.id}
+                    task={m}
+                    now={now}
+                    blockSize={members.length}
+                    showName
+                    onDone={onDone}
+                    onToggleNotes={onToggleNotes}
+                    onSetNotes={onSetNotes}
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="compact-footer">{elapsed} / {plannedMin}m</div>
           </>
         ) : (
           <div className="compact-project">Sin tareas pendientes</div>

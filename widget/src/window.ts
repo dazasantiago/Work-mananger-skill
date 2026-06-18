@@ -6,8 +6,8 @@ import {
   type Monitor,
 } from '@tauri-apps/api/window';
 
-const COMPACT_W = 240;
-const COMPACT_H = 230;
+const COMPACT_W = 190;
+const COMPACT_H = 140;
 const EDGE_THRESHOLD = 30;
 const COMPACT_SNAP = 40;
 
@@ -33,6 +33,10 @@ export async function closeWindow(): Promise<void> {
 
 export async function minimizeWindow(): Promise<void> {
   await getCurrentWindow().minimize();
+}
+
+export async function isWindowMinimized(): Promise<boolean> {
+  return getCurrentWindow().isMinimized();
 }
 
 export async function getWindowOuterPosition(): Promise<{ x: number; y: number }> {
